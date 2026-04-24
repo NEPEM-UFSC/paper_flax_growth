@@ -1,0 +1,444 @@
+---
+title: "Leaf Area Model"
+description: "Nonlinear logistic regression of leaf area per plant as a function of accumulated growing degree-days (GDD), with ANOVA on model parameters and derivative-based critical-point analysis."
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache    = FALSE,
+  comment  = "##",
+  collapse = TRUE,
+  warning  = FALSE,
+  message  = FALSE
+)
+```
+
+## Overview
+
+A **three-parameter logistic model** is fitted separately to each combination of
+season × cultivar × block. The estimated parameters are then subjected to a
+two-factor ANOVA in randomised complete blocks (FAT2DBC) to test the effects of
+sowing date and cultivar.
+
+The logistic function is:
+
+$$
+y = \frac{\beta_1}{1 + e^{\;\beta_3(\beta_2 - x)}}
+$$
+
+| Parameter | Interpretation |
+|-----------|---------------|
+| β₁ | Upper asymptote (maximum leaf area, cm² plant⁻¹) |
+| β₂ | Inflection point (GDD at maximum growth rate) |
+| β₃ | Steepness coefficient (growth rate) |
+
+## Required packages
+
+```{r libraries}
+#| cache: false
+library(rio)        # Data import
+library(tidyverse)  # Data wrangling and visualisation
+library(metan)      # mean_by(), doo(), corr_plot()
+library(broom)      # tidy() – extract NLS coefficients as a data frame
+library(AgroR)      # FAT2DBC() – two-factor ANOVA in RCBD
+library(patchwork)  # Combine ggplot objects
+library(hydroGOF)   # gof() – goodness-of-fit statistics (R², RMSE, …)
+library(gt)         # Professional tables
+```
+
+## Load data
+
+```{r load-data}
+# Import the pre-computed plot-mean dataset.
+# Each row = one season × cultivar × block × date mean (already averaged across plants).
+df_model <-
+  import("../df_model_cresc_medias.xlsx")
+```
+
+## Fit logistic models – leaf area
+
+```{r fit-nls}
+# Define the logistic formula for NLS fitting
+formula_af <- af_planta_mean ~ b1 / (1 + exp((b3 * (b2 - gda))))
+
+# Initial parameter guesses (required by nls())
+#   b1 = 100  → expected maximum leaf area (~100 cm² plant⁻¹)
+#   b2 = 400  → inflection point around 400 GDD
+#   b3 = 0.01 → moderate steepness
+start_af <- list(b1 = 100, b2 = 400, b3 = 0.01)
+
+# Fit one model per season × cultivar × block combination.
+# The date "04/11" is excluded because it falls outside the vegetative growth
+# window (post-flowering measurement, distorts the sigmoid shape).
+# metan::doo() is a tidy wrapper around dplyr::group_map() for NLS.
+mod_af <-
+  df_model |>
+  filter(data != "04/11") |>
+  group_by(epoca, cultivar, bloco) |>
+  doo(~nls(formula_af, data = ., start = start_af))
+```
+
+## Extract estimated parameters
+
+```{r extract-params}
+# broom::tidy() converts each NLS object into a data frame with columns:
+#   term, estimate, std.error, statistic, p.value
+# pivot_wider() reshapes so each parameter (b1, b2, b3) is its own column.
+parameters_af <-
+  mod_af |>
+  mutate(data = map(data, ~.x |> tidy())) |>
+  unnest(data) |>
+  select(epoca, cultivar, bloco, term, estimate) |>
+  pivot_wider(names_from  = term,
+              values_from = estimate)
+```
+
+
+## Goodness of fit
+
+```{r goodness-of-fit}
+#| cache: false
+# Helper function: extract R² and AIC from a single NLS object
+get_gof <- function(model) {
+  aic  <- AIC(model)
+  bic  <- BIC(model)
+  fit  <- model$m$fitted()   # fitted values
+  res  <- model$m$resid()    # residuals
+  obs  <- fit + res           # observed = fitted + residual
+  
+  # Compute GOF metrics using hydroGOF::gof
+  g <- hydroGOF::gof(sim = fit, obs = obs, digits = 4)
+  
+  # Extract specific metrics
+  r2   <- g["R2", ]
+  rmse <- g["RMSE", ]
+  mae  <- g["MAE", ]
+  d    <- g["d", ]
+  
+  data.frame(aic = aic, bic = bic, r2 = r2, rmse = rmse, mae = mae, d = d)
+}
+
+# Apply the helper to every model in the nested data frame
+gof_af <-
+  mod_af |>
+  mutate(map_dfr(.x = data, .f = ~get_gof(.))) |>
+  select(-data) |>
+  mutate(variable = "leaf_area")
+
+# Display goodness of fit table with gt
+gof_af |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S1",
+    subtitle = "Goodness-of-fit metrics for Leaf Area logistic models (per block)"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 4)
+
+saveRDS(gof_af, "../results/gof_af.rds")
+```
+
+## Fitted logistic curves
+
+```{r fitted-plot, fig.cap="Logistic growth curves fitted to leaf area per plant (cm² plant⁻¹) as a function of accumulated GDD, faceted by sowing season. Points = treatment means. The semi-transparent point at the far right (04/11) was excluded from fitting.", fig.width=6, fig.height=10}
+# Logistic formula used inside geom_smooth (x/y notation for ggplot internals)
+formula_xy <- y ~ b1 / (1 + exp((b3 * (b2 - x))))
+
+ggplot(
+  df_model |> filter(!data %in% c("04/11")),
+  aes(gda, af_planta_mean, color = cultivar)
+) +
+  # Fitted NLS curves via geom_smooth (one per cultivar)
+  geom_smooth(
+    method      = "nls",
+    method.args = list(
+      formula = formula_xy,
+      start   = c(b1 = 60, b2 = 400, b3 = 0.01)
+    ),
+    se  = FALSE,
+    aes(color = cultivar)
+  ) +
+  # One panel per sowing season
+  facet_wrap(~epoca, ncol = 1) +
+  # Treatment means overlaid as points
+  stat_summary(
+    fun      = mean,
+    geom     = "point",
+    aes(color = cultivar),
+    size     = 2.5,
+    position = position_dodge(width = 0.8)
+  ) +
+  scale_y_continuous(breaks = seq(0, 150, by = 25)) +
+  labs(
+    x     = "Accumulated Degree Days",
+    y     = expression(Leaf ~ area ~ (cm^2 ~ plant^{-1})),
+    color = "Cultivar"
+  ) +
+  scale_color_manual(values = c("gold", "brown")) +
+  # Add the excluded 04/11 point as a transparent reference
+  stat_summary(
+    data          = df_model |> filter(data == "04/11"),
+    aes(x = gda, y = af_planta_mean),
+    fun           = mean,
+    alpha         = 0.4,
+    shape         = 16,
+    show.legend   = FALSE
+  ) +
+  theme_bw(base_size = 18) +
+  theme(
+    panel.grid.major  = element_blank(),
+    legend.background = element_rect(fill = "transparent"),
+    legend.position   = "bottom"
+  )
+
+ggsave("../figs/mod_logistico_af.jpg", width = 6, height = 9)
+```
+
+## Derivative analysis
+
+### First derivative – growth rate
+
+The first derivative of the logistic function with respect to GDD gives the
+**instantaneous growth rate** of leaf area:
+
+$$
+\frac{dy}{dx} = \frac{\beta_1 \cdot \beta_3 \cdot e^{\beta_3(\beta_2 - x)}}
+{\left[1 + e^{\beta_3(\beta_2 - x)}\right]^2}
+$$
+
+This reaches its maximum at the **inflection point** x = β₂.
+
+```{r first-derivative}
+# Symbolically verify the derivative (output shown for transparency)
+D(expression(b1 / (1 + exp((b3 * (b2 - x))))), "x")
+
+# Numerical first-derivative function
+dy <- function(x, b1, b2, b3) {
+  b1 * (exp((b3 * (b2 - x))) * b3) / (1 + exp((b3 * (b2 - x))))^2
+}
+
+# Average parameters over blocks (mean_by collapses replications)
+# and compute the inflection-point coordinates (xpi, ypi)
+parameters_af <-
+  parameters_af |>
+  mutate(
+    xpi = b2,                        # x at inflection = β₂
+    ypi = dy(xpi, b1, b2, b3)        # maximum growth rate value
+  ) |>
+  as.data.frame() |>
+  mutate(variable = "leaf_area")
+
+
+```
+
+### Second derivative – acceleration / deceleration
+
+The second derivative identifies the **critical acceleration point** (MAP: maximum
+acceleration point) and the **maximum deceleration point** (MDP):
+
+$$
+x_{MAP} = \beta_2 + \frac{\ln(2 + \sqrt{3})}{\beta_3}, \qquad
+x_{MDP} = \beta_2 - \frac{\ln(2 + \sqrt{3})}{\beta_3}
+$$
+
+```{r second-derivative}
+# Symbolically verify the second derivative
+D(expression(b1 * (exp((b3 * (b2 - x))) * b3) / (1 + exp((b3 * (b2 - x))))^2), "x")
+
+# Numerical second-derivative function
+d2y <- function(x, b1, b2, b3) {
+  -(b1 * (exp((b3 * (b2 - x))) * b3 * b3) / (1 + exp((b3 * (b2 - x))))^2 -
+      b1 * (exp((b3 * (b2 - x))) * b3) *
+      (2 * (exp((b3 * (b2 - x))) * b3 * (1 + exp((b3 * (b2 - x)))))) /
+      ((1 + exp((b3 * (b2 - x))))^2)^2)
+}
+
+# Compute MAP and MDP x-coordinates and their second-derivative values
+parameters_af <-
+  parameters_af |>
+  mutate(
+    xmap = b2 - (log(2 + sqrt(3)) / b3),   # GDD at maximum acceleration point
+    xmdp = b2 + (log(2 + sqrt(3)) / b3),   # GDD at maximum deceleration point
+    ymap = d2y(xmap, b1, b2, b3),
+    ymdp = d2y(xmdp, b1, b2, b3)
+  )
+
+parameters_af_mean <- 
+  parameters_af |> 
+  metan::mean_by(epoca, cultivar) 
+
+# Factor-level means (Sowing Season and Cultivar)
+# Since interaction is often non-significant, we present main effects
+```{r means-summary-af}
+#| cache: false
+means_epoca_af <- 
+  parameters_af |> 
+  metan::mean_by(epoca) |> 
+  mutate(Factor = "Sowing Season") |> 
+  rename(Level = epoca)
+
+means_cultivar_af <- 
+  parameters_af |> 
+  metan::mean_by(cultivar) |> 
+  mutate(Factor = "Cultivar") |> 
+  rename(Level = cultivar)
+
+means_summary_af <- 
+  bind_rows(means_epoca_af, means_cultivar_af) |> 
+  relocate(Factor, Level)
+
+
+# Display means summary using gt
+means_summary_af |> 
+  gt(groupname_col = "Factor") |> 
+  tab_header(
+    title = "Supplementary Table S2", 
+    subtitle = "Main Effect Means: Model parameters and critical points for Leaf Area"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5)
+
+saveRDS(means_summary_af, "../results/means_summary_af.rds")
+
+```
+
+```{r derivative-plots, fig.cap="First (left) and second (right) derivatives of the fitted logistic curves for leaf area. Points mark the inflection, acceleration, and deceleration thresholds for each cultivar × season combination.", fig.width=8, fig.height=10}
+
+# --- First derivative plot ---
+plot_pi <-
+  ggplot() +
+  # Each combination: cultivar (colour) × season (linetype)
+  stat_function(fun = dy, aes(color = "D", linetype = "E1"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[1, 3]],
+                         b2 = parameters_af_mean[[1, 4]],
+                         b3 = parameters_af_mean[[1, 5]])) +
+  stat_function(fun = dy, aes(color = "M", linetype = "E1"), linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[2, 3]],
+                         b2 = parameters_af_mean[[2, 4]],
+                         b3 = parameters_af_mean[[2, 5]])) +
+  stat_function(fun = dy, aes(color = "D", linetype = "E2"), linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[3, 3]],
+                         b2 = parameters_af_mean[[3, 4]],
+                         b3 = parameters_af_mean[[3, 5]])) +
+  stat_function(fun = dy, aes(color = "M", linetype = "E2"), linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[4, 3]],
+                         b2 = parameters_af_mean[[4, 4]],
+                         b3 = parameters_af_mean[[4, 5]])) +
+  # Mark the inflection point for each treatment
+  geom_point(aes(xpi, ypi, shape = epoca, color = cultivar),
+             data = parameters_af_mean, size = 3, show.legend = FALSE) +
+  theme_bw(base_size = 20) +
+  scale_x_continuous(breaks = seq(0, 1200, by = 200)) +
+  labs(
+    x       = "Accumulated Degree Days",
+    y       = expression(Leaf ~ area ~ (cm^2 ~ plant^{-1} ~ degree ~ C ~ day^{-1})),
+    color   = "Cultivar",
+    linetype = "Season"
+  ) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("gold", "brown"))
+
+# --- Second derivative plot ---
+plot_sd <-
+  ggplot() +
+  geom_hline(yintercept = 0) +  # zero line: above = acceleration, below = deceleration
+  stat_function(fun = d2y, aes(color = "D", linetype = "E1"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[1, 3]],
+                         b2 = parameters_af_mean[[1, 4]],
+                         b3 = parameters_af_mean[[1, 5]])) +
+  stat_function(fun = d2y, aes(color = "M", linetype = "E1"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[2, 3]],
+                         b2 = parameters_af_mean[[2, 4]],
+                         b3 = parameters_af_mean[[2, 5]])) +
+  stat_function(fun = d2y, aes(color = "D", linetype = "E2"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[3, 3]],
+                         b2 = parameters_af_mean[[3, 4]],
+                         b3 = parameters_af_mean[[3, 5]])) +
+  stat_function(fun = d2y, aes(color = "M", linetype = "E2"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_af_mean[[4, 3]],
+                         b2 = parameters_af_mean[[4, 4]],
+                         b3 = parameters_af_mean[[4, 5]])) +
+  # MAP (triangle up) and MDP (triangle down) markers
+  geom_point(aes(xmap, ymap, fill = cultivar), data = parameters_af_mean,
+             size = 3, shape = 24, show.legend = FALSE) +
+  geom_point(aes(xmdp, ymdp, fill = cultivar), data = parameters_af_mean,
+             size = 3, shape = 25, show.legend = FALSE) +
+  theme_bw(base_size = 20) +
+  labs(
+    x       = "Accumulated Degree Days",
+    y       = expression(cm^2 ~ plant^{-1} ~ degree ~ C ~ day^{-2}),
+    color   = "Cultivar",
+    linetype = "Season"
+  ) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("gold", "brown")) +
+  scale_fill_manual(values  = c("gold", "brown"))
+
+# Combine both plots with a shared legend
+plot_pi / plot_sd +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+ggsave("../figs/deriv_af.jpg", width = 8, height = 12)
+```
+
+## ANOVA on model parameters and critical points
+
+```{r anova-params}
+#| cache: false
+# List of variables to analyze
+vars_af <- c("b1", "b2", "b3", "xpi", "ypi", "xmap", "xmdp")
+
+# 1. Run the ANOVA for all variables and store the full objects in a list
+# This allows access to means tests and other FAT2DBC outputs later.
+mod_anova_af <- 
+  vars_af |> 
+  set_names() |> 
+  map(~with(parameters_af, FAT2DBC(epoca, cultivar, bloco, get(.x),
+                                   names.fat = c("Season", "Cultivar"))))
+
+# 2. Extract and combine tidy ANOVA tables for the summary
+anova_af <- 
+  mod_anova_af |> 
+  map_dfr(~{
+    .x$anova |> 
+      broom::tidy()
+  }, .id = "Parameter") |> 
+  mutate(term = str_replace(term, "Fator1", "Season"),
+         term = str_replace(term, "Fator2", "Cultivar"))
+
+# Display the summary table with gt
+anova_af |> 
+  filter(term != "Residuals", Parameter != "xpi") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S3",
+    subtitle = "ANOVA Summary: Model parameters and critical points for Leaf Area"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5) |> 
+  tab_style(
+    style = cell_text(color = "red", weight = "bold"),
+    locations = cells_body(
+      rows = p.value < 0.05
+    )
+  )
+
+saveRDS(anova_af, "../results/anova_af.rds")
+```
+
+# Correlation between model parameters
+```{r}
+# Correlation between parameters and critical points
+
+  parameters_af |> 
+  select(all_of(vars_af)) |> 
+  metan::corr_coef() |> 
+  plot()
+```
+

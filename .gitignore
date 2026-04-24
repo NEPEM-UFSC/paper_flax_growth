@@ -1,0 +1,19 @@
+# R session files
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Quarto build output (committed for GitHub Pages deployment)
+# docs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary / cache files
+*_cache/
+*_files/
+__pycache__/
+
+/.quarto/

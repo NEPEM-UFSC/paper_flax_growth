@@ -1,0 +1,172 @@
+---
+title: "Climate Data Processing"
+description: "Import and summarise hourly climate records; compute daily temperatures and growing degree-days (GDD) per sowing season."
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache   = FALSE,
+  comment = "##",
+  collapse = TRUE,
+  warning  = FALSE,
+  message  = FALSE
+)
+```
+
+## Overview
+
+This section imports hourly weather station data, aggregates it to daily summaries,
+and derives the **accumulated growing degree-days (GDD)** used as the thermal-time
+variable for all subsequent growth models.
+
+::: {.callout-note}
+GDD is calculated as the mean daily temperature minus a base temperature of 5 °C,
+which is commonly adopted for flax (*Linum usitatissimum* L.).
+:::
+
+## Required packages
+
+```{r libraries}
+library(rio)        # Flexible data import (import())
+library(tidyverse)  # Data manipulation and visualisation (dplyr, ggplot2, …)
+library(lubridate)  # Date parsing helpers (dmy(), ymd())
+library(ggridges)   # Ridge/density plots (geom_density_ridges_gradient())
+```
+
+## Import and structure climate data
+
+```{r import-climate}
+# Import the raw CSV file.
+# 'dec = ","' handles the Brazilian decimal comma format.
+dft <-
+  import("../clima.csv", dec = ",") |>
+  # The 'hora' column stores date as "DD/MM/YYYY HH:MM" → split into parts
+  separate(hora, into = c("dia", "mes", "ano")) |>
+  # Rebuild a single date string and parse it with lubridate
+  unite("data", dia, mes, ano, sep = "/") |>
+  mutate(data = dmy(data))
+```
+
+## Daily temperature summary
+
+```{r daily-summary}
+# Aggregate hourly records to daily statistics.
+# Variables:
+#   tmin / tmed / tmax : minimum, mean, maximum temperature (°C)
+#   prec               : daily rainfall (mm)
+#   ur                 : mean relative humidity (%)
+#   gd                 : growing degree-days via mean temperature  (Tmean – 5)
+#   gd2                : growing degree-days via Tmax+Tmin average ((Tmax+Tmin)/2 – 5)
+dftemp <-
+  dft |>
+  group_by(data) |>
+  summarise(
+    tmin = min(tmin),
+    tmed = mean(tmed),
+    tmax = max(tmax),
+    prec = sum(prec),
+    ur   = mean(ur)
+  ) |>
+  mutate(
+    gd  = tmed - 5,                  # GDD method 1: mean temperature
+    gd2 = ((tmax + tmin) / 2) - 5   # GDD method 2: (Tmax + Tmin) / 2
+  ) |>
+  mutate(data = ymd(data))
+```
+
+## Split data by sowing season
+
+```{r sowing-seasons}
+# Season E1: rows 1–79  (first sowing date)
+dftempe1 <-
+  dftemp |>
+  slice(1:79) |>
+  mutate(season = "E1")
+
+# Season E2: rows 79–148 (second sowing date, one row overlap ensures continuity)
+dftempe2 <-
+  dftemp |>
+  slice(79:148) |>
+  mutate(season = "E2")
+
+# Combine seasons and compute cumulative GDD within each season
+dftemp2 <-
+  bind_rows(dftempe1, dftempe2) |>
+  relocate(season, .before = data) |>
+  group_by(season) |>
+  mutate(
+    gda  = cumsum(gd),   # Cumulative GDD – method 1
+    gda2 = cumsum(gd2)   # Cumulative GDD – method 2
+  ) |>
+  # Reformat the date for display (DD/MM)
+  separate(data, into = c("ano", "mes", "dia")) |>
+  unite("data", dia, mes, sep = "/")
+
+dftemp2 |> group_by(season) |> summarise(sum(prec))
+```
+
+## Ridge plot – temperature distribution by month
+
+```{r ridge-plot, fig.cap="Distribution of maximum daily temperatures by month. Higher temperatures in summer months (Dec–Feb) contrast with cooler autumn/winter records."}
+dft |>
+  # Extract month from the date column for grouping on the y-axis
+  separate(data, into = c("ano", "mes", "dia")) |>
+  ggplot(aes(x = tmax, y = mes, fill = after_stat(x))) +
+  geom_density_ridges_gradient() +
+  scale_fill_viridis_c() +
+  labs(
+    x    = "Maximum temperature (°C)",
+    y    = "Month of the year",
+    fill = "Max. temperature\n(°C)"
+  ) +
+  theme_bw(base_size = 14)
+```
+
+## Temperature and rainfall overview
+
+```{r temp-rain-plot, fig.cap="Daily maximum (red) and minimum (blue) temperatures with LOESS smoothing, and daily rainfall (sky-blue bars) across the study period.", out.width="100%"}
+ggplot() +
+  # Rainfall bars (scaled to secondary axis: raw mm × 30/100)
+  geom_bar(
+    dftemp,
+    mapping  = aes(x = data, y = prec * 30 / 100),
+    stat     = "identity",
+    fill     = "skyblue"
+  ) +
+  # Raw daily Tmax and Tmin lines (transparent)
+  geom_line(dftemp, mapping = aes(x = data, y = tmax, colour = "red"),  linewidth = 1, alpha = 0.1) +
+  geom_line(dftemp, mapping = aes(x = data, y = tmin, colour = "blue"), linewidth = 1, alpha = 0.1) +
+  # LOESS smoothed trends for Tmax and Tmin
+  geom_smooth(dftemp, mapping = aes(x = data, y = tmax, colour = "red"),  linewidth = 1, se = FALSE) +
+  geom_smooth(dftemp, mapping = aes(x = data, y = tmin, colour = "blue"), linewidth = 1, se = FALSE) +
+  # X-axis: dates every 15 days
+  scale_x_date(
+    date_breaks = "15 days",
+    date_labels = "%d/%m",
+    expand      = expansion(c(0, 0))
+  ) +
+  # Primary Y-axis: temperature; secondary Y-axis: rainfall (rescaled back to mm)
+  scale_y_continuous(
+    name      = expression("Temperature (" ~ degree ~ "C)"),
+    sec.axis  = sec_axis(~ . * 100 / 30, name = "Rainfall (mm)")
+  ) +
+  # Colour legend with descriptive labels
+  scale_color_identity(
+    breaks = c("red", "blue"),
+    labels = c("Maximum temperature (°C)", "Minimum temperature (°C)"),
+    guide  = "legend"
+  ) +
+  labs(
+    x     = "Day of the year",
+    color = ""
+  ) +
+  theme_bw(base_size = 16) +
+  theme(
+    panel.grid.major  = element_blank(),
+    legend.background = element_rect(fill = "transparent"),
+    legend.position   = "bottom",
+    axis.text.x       = element_text(angle = 45, vjust = 1, hjust = 1)
+  )
+
+ggsave("../figs/temperature.jpg", width = 12, height = 6)
+```

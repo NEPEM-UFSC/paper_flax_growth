@@ -1,0 +1,81 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Flax Growth Modelling"
+  description: "Logistic model reveals early sowing as key to maximizing flax (Linum usitatissimum L.) vegetative growth under subtropical conditions"
+  favicon: images/favicon.png
+  site-url: https://nepem-ufsc.github.io/paper_flax_growth
+  repo-url: https://github.com/nepem-ufsc/paper_flax_growth
+  repo-actions: [issue]
+  page-footer:
+    left: |
+      &copy; 2025 NEPEM – Núcleo de Estudos em Pesquisa e Experimentação e Melhoramento Vegetal | UFSC
+    right: |
+      Built with [Quarto](https://quarto.org) &nbsp;|&nbsp; [Source](https://github.com/nepem-ufsc/paper_flax_growth)
+
+  navbar:
+    logo: figs/logo_nepem.png
+    logo-alt: "NEPEM logo"
+    title: false
+    background: "#1a1a2e"
+    foreground: "#e8e8f0"
+    pinned: true
+    left:
+      - text: "Home"
+        href: index.qmd
+        icon: house-fill
+      - text: "Analysis"
+        menu:
+          - text: "1 · Climate Data"
+            href: analysis/01_climate.qmd
+          - text: "2 · Leaf Area"
+            href: analysis/02_leaf_area.qmd
+          - text: "3 · Plant Height"
+            href: analysis/03_plant_height.qmd
+          - text: "4 · Leaf Number"
+            href: analysis/04_leaf_number.qmd
+          - text: "5 · Correlations"
+            href: analysis/05_correlations.qmd
+          - text: "6 · Supplementary Tables"
+            href: analysis/06_supplementary.qmd
+      - text: "About"
+        href: about.qmd
+    right:
+      - icon: github
+        href: https://github.com/nepem-ufsc/paper_flax_growth
+        aria-label: GitHub
+
+  sidebar: false
+
+format:
+  html:
+    theme:
+      light: [cosmo, styles/custom.scss]
+      dark:  [darkly, styles/custom.scss]
+    toc: true
+    toc-depth: 3
+    toc-title: "On this page"
+    code-fold: true
+    code-summary: "Show code"
+    code-tools: true
+    code-copy: true
+    code-overflow: wrap
+    number-sections: false
+    highlight-style: github
+    fig-align: center
+    fig-cap-location: bottom
+    df-print: paged
+    smooth-scroll: true
+
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+
+knitr:
+  opts_chunk:
+    comment: "##"
+    collapse: true

@@ -1,0 +1,50 @@
+---
+title: "About"
+description: "Research group, authors, and funding information."
+toc: false
+---
+
+## Research group
+
+This work was developed at the **NEPEM – Núcleo de Estudos em Pesquisa e
+Experimentação com Milho** (Study Group on Research and Experimentation), within
+the Department of Plant Science (*Departamento de Fitotecnia*) of the
+**Federal University of Santa Catarina (UFSC)**, Florianópolis, Brazil.
+
+## Study location
+
+Experiments were conducted at the **Centro de Ciências Agrárias (CCA/UFSC)**,
+Florianópolis, Santa Catarina, Brazil (27°35'S, 48°31'W; 2 m a.s.l.).
+The subtropical climate of the region is classified as Cfa (Köppen) —
+humid subtropical with hot summers and mild winters — making it an important
+testbed for cool-season crops such as flax.
+
+## Citation
+
+> **Authors.** (2025). Logistic model reveals early sowing as key to maximizing
+> flax (*Linum usitatissimum* L.) vegetative growth under subtropical conditions.
+> *Agronomy Journal*. doi: [pending]()
+
+## Reproducibility
+
+All analyses were performed in **R** (R Core Team, 2024) using a fully
+reproducible Quarto workflow. Source code and data are publicly available at:
+
+🔗 [github.com/nepem-ufsc/paper_flax_growth](https://github.com/nepem-ufsc/paper_flax_growth)
+
+Key R packages used:
+
+| Package | Purpose | Reference |
+|---------|---------|-----------|
+| `metan` | Multi-environment trial analysis, `doo()`, `corr_plot()` | Olivoto & Lúcio (2020) |
+| `AgroR` | Agricultural ANOVA, `FAT2DBC()` | Olivoto et al. (2022) |
+| `broom` | Tidy NLS output | Robinson et al. (2023) |
+| `hydroGOF` | Goodness-of-fit metrics (R², RMSE) | Zambrano-Bigiarini (2023) |
+| `ggplot2` | Data visualisation | Wickham (2016) |
+| `patchwork` | Multi-panel figures | Pedersen (2024) |
+| `ggridges` | Ridge density plots | Wilke (2024) |
+
+## Contact
+
+For questions or collaborations, please open an
+[Issue](https://github.com/nepem-ufsc/paper_flax_growth/issues) on GitHub.

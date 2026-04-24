@@ -1,0 +1,415 @@
+---
+title: "Plant Height Model"
+description: "Three-parameter logistic model fitted to plant height as a function of accumulated growing degree-days (GDD), with ANOVA on model parameters and all derivative-based critical points."
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache    = FALSE,
+  comment  = "##",
+  collapse = TRUE,
+  warning  = FALSE,
+  message  = FALSE
+)
+```
+
+## Overview
+
+The same logistic framework applied to leaf area is used here for **plant height**
+(stem length, cm). Parameters β₁–β₃ are estimated independently for each
+season × cultivar × block combination and subjected to two-factor ANOVA in
+randomised complete blocks (FAT2DBC). Critical points derived from the first and
+second derivatives are also computed at the block level and analysed by ANOVA.
+
+$$
+y = \frac{\beta_1}{1 + e^{\;\beta_3(\beta_2 - x)}}
+$$
+
+| Parameter | Interpretation |
+|-----------|---------------|
+| β₁ | Upper asymptote (maximum plant height, cm) |
+| β₂ | Inflection point (GDD at maximum elongation rate) |
+| β₃ | Steepness coefficient (elongation rate) |
+
+## Required packages
+
+```{r libraries}
+#| cache: false
+library(rio)        # Data import
+library(tidyverse)  # Data wrangling and visualisation
+library(metan)      # mean_by(), doo()
+library(broom)      # tidy() – NLS summary as data frame
+library(AgroR)      # FAT2DBC() – two-factor ANOVA in RCBD
+library(patchwork)  # Combine ggplot panels
+library(hydroGOF)   # gof() – goodness-of-fit metrics
+library(gt)         # Professional tables
+```
+
+## Load data
+
+```{r load-data}
+# Import the pre-computed plot-mean dataset.
+# Each row = one season × cultivar × block × date mean (already averaged across plants).
+# This dataset is used both for model fitting and for the ANOVA on critical points.
+df_model <-
+  import("../df_model_cresc_medias.xlsx")
+```
+
+## Fit logistic models – plant height
+
+```{r fit-nls}
+# Response variable: 'cp' (comprimento de planta = plant height, cm)
+formula_ap <- cp_mean ~ b1 / (1 + exp((b3 * (b2 - gda))))
+
+# Starting values:
+#   b1 = 100  → expected maximum height (~100 cm)
+#   b2 = 400  → inflection point around 400 GDD
+#   b3 = 0.01 → moderate steepness
+start_ap <- list(b1 = 100, b2 = 400, b3 = 0.01)
+
+# Fit one model per season × cultivar × block combination.
+# The date "04/11" falls outside the vegetative growth window (post-flowering)
+# and is excluded to preserve the sigmoid shape of the curve.
+mod_ap <-
+  df_model |>
+  filter(data != "04/11") |>
+  group_by(epoca, cultivar, bloco) |>
+  doo(~nls(formula_ap, data = ., start = start_ap))
+```
+
+## Goodness of fit
+
+```{r goodness-of-fit}
+#| cache: false
+# Helper function: extract R² and AIC from a single NLS model object
+get_gof <- function(model) {
+  aic  <- AIC(model)
+  bic  <- BIC(model)
+  fit  <- model$m$fitted()
+  res  <- model$m$resid()
+  obs  <- fit + res
+  
+  g <- hydroGOF::gof(sim = fit, obs = obs, digits = 4)
+  
+  r2   <- g["R2", ]
+  rmse <- g["RMSE", ]
+  mae  <- g["MAE", ]
+  d    <- g["d", ]
+  
+  data.frame(aic = aic, bic = bic, r2 = r2, rmse = rmse, mae = mae, d = d)
+}
+
+# Apply to all models
+gof_ap <-
+  mod_ap |>
+  mutate(map_dfr(.x = data, .f = ~get_gof(.))) |>
+  select(-data) |>
+  mutate(variable = "plant_height")
+
+# Display goodness of fit table with gt
+gof_ap |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S4",
+    subtitle = "Goodness-of-fit metrics for Plant Height logistic models (per block)"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 4)
+
+saveRDS(gof_ap, "../results/gof_ap.rds")
+```
+
+## Extract estimated parameters and compute critical points
+
+```{r extract-params}
+# broom::tidy() converts each NLS object into a tidy data frame;
+# pivot_wider() places b1, b2, b3 as separate columns.
+parameters_ap <-
+  mod_ap |>
+  mutate(data = map(data, ~.x |> tidy())) |>
+  unnest(data) |>
+  select(epoca, cultivar, bloco, term, estimate) |>
+  pivot_wider(names_from  = term,
+              values_from = estimate)
+```
+
+## Derivative functions
+
+```{r derivative-functions}
+# Symbolically verify the first derivative
+D(expression(b1 / (1 + exp((b3 * (b2 - x))))), "x")
+
+# First derivative: instantaneous elongation rate at a given GDD (x)
+dy <- function(x, b1, b2, b3) {
+  b1 * (exp((b3 * (b2 - x))) * b3) / (1 + exp((b3 * (b2 - x))))^2
+}
+
+# Symbolically verify the second derivative
+D(expression(b1 * (exp((b3 * (b2 - x))) * b3) / (1 + exp((b3 * (b2 - x))))^2), "x")
+
+# Second derivative: rate of change of elongation rate (acceleration / deceleration)
+d2y <- function(x, b1, b2, b3) {
+  -(b1 * (exp((b3 * (b2 - x))) * b3 * b3) / (1 + exp((b3 * (b2 - x))))^2 -
+      b1 * (exp((b3 * (b2 - x))) * b3) *
+      (2 * (exp((b3 * (b2 - x))) * b3 * (1 + exp((b3 * (b2 - x)))))) /
+      ((1 + exp((b3 * (b2 - x))))^2)^2)
+}
+```
+
+### Critical points at block level
+
+```{r critical-points}
+# Compute ALL critical points at the individual block level.
+# This preserves the replication structure required for ANOVA.
+#
+# Critical points derived from the logistic model:
+#   xpi  = β₂                              → GDD at maximum elongation rate (inflection)
+#   ypi  = dy(β₂)                          → maximum elongation rate value
+#   xmap = β₂ + ln(2 + √3) / β₃           → GDD at maximum acceleration point (MAP)
+#   xmdp = β₂ − ln(2 + √3) / β₃           → GDD at maximum deceleration point (MDP)
+#   ymap = d²y(xmap)                        → second-derivative value at MAP
+#   ymdp = d²y(xmdp)                        → second-derivative value at MDP
+parameters_ap <-
+  parameters_ap |>
+  mutate(
+    xpi  = b2,
+    ypi  = dy(xpi, b1, b2, b3),
+    xmap = b2 - (log(2 + sqrt(3)) / b3),
+    xmdp = b2 + (log(2 + sqrt(3)) / b3),
+    ymap = d2y(xmap, b1, b2, b3),
+    ymdp = d2y(xmdp, b1, b2, b3)
+  ) |>
+  as.data.frame() |>
+  mutate(variable = "plant_height")
+
+# Block-level means for derivative plots (used in stat_function args)
+parameters_ap_mean <-
+  parameters_ap |>
+  metan::mean_by(epoca, cultivar)
+
+# Factor-level means (Sowing Season and Cultivar)
+# Since interaction is often non-significant, we present main effects
+means_epoca_ap <- 
+  parameters_ap |> 
+  metan::mean_by(epoca) |> 
+  mutate(Factor = "Sowing Season") |> 
+  rename(Level = epoca)
+
+means_cultivar_ap <- 
+  parameters_ap |> 
+  metan::mean_by(cultivar) |> 
+  mutate(Factor = "Cultivar") |> 
+  rename(Level = cultivar)
+
+means_summary_ap <- 
+  bind_rows(means_epoca_ap, means_cultivar_ap) |> 
+  relocate(Factor, Level)
+
+
+
+# Display means summary using gt
+means_summary_ap |> 
+  gt(groupname_col = "Factor") |> 
+  tab_header(
+    title = "Supplementary Table S5", 
+    subtitle = "Main Effect Means: Model parameters and critical points for Plant Height"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5)
+
+saveRDS(means_summary_ap, "../results/means_summary_ap.rds")
+
+```
+
+## ANOVA on model parameters and critical points
+
+```{r anova-params}
+#| cache: false
+# List of variables to analyze
+vars_ap <- c("b1", "b2", "b3", "xpi", "ypi", "xmap", "xmdp")
+
+# 1. Run the ANOVA for all variables and store the full objects in a list
+# This allows access to means tests and other FAT2DBC outputs later.
+mod_anova_ap <- 
+  vars_ap |> 
+  set_names() |> 
+  map(~with(parameters_ap, FAT2DBC(epoca, cultivar, bloco, get(.x))))
+
+# 2. Extract and combine tidy ANOVA tables for the summary
+anova_ap <- 
+  mod_anova_ap |> 
+  map_dfr(~{
+    .x$anova |> 
+      broom::tidy()
+  }, .id = "Parameter") |> 
+  mutate(term = str_replace(term, "Fator1", "Season"),
+         term = str_replace(term, "Fator2", "Cultivar"))
+
+# Display the summary table with gt
+anova_ap |> 
+  filter(term != "Residuals", Parameter != "xpi") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S6",
+    subtitle = "ANOVA Summary: Model parameters and critical points for Plant Height"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5) |> 
+  tab_style(
+    style = cell_text(color = "red", weight = "bold"),
+    locations = cells_body(
+      rows = p.value < 0.05
+    )
+  )
+
+saveRDS(anova_ap, "../results/anova_ap.rds")
+```
+
+## Fitted logistic curves
+
+```{r fitted-plot, fig.cap="Logistic curves fitted to plant height (cm) as a function of accumulated GDD, faceted by sowing season. Points = treatment means. The semi-transparent point (04/11) was excluded from fitting.", fig.width=6, fig.height=10}
+# Logistic formula in x/y notation (required by geom_smooth internals)
+formula_xy <- y ~ b1 / (1 + exp((b3 * (b2 - x))))
+
+ggplot(
+  df_model |> filter(!data %in% c("04/11")),
+  aes(gda, cp_mean, color = cultivar)
+) +
+  geom_smooth(
+    method      = "nls",
+    method.args = list(
+      formula = formula_xy,
+      start   = c(b1 = 60, b2 = 400, b3 = 0.01)
+    ),
+    se  = FALSE,
+    aes(color = cultivar)
+  ) +
+  facet_wrap(~epoca, ncol = 1) +
+  stat_summary(
+    fun      = mean,
+    geom     = "point",
+    aes(color = cultivar),
+    size     = 2.5,
+    position = position_dodge(width = 0.8)
+  ) +
+  scale_y_continuous(breaks = seq(0, 150, by = 25)) +
+  labs(
+    x     = "Accumulated Degree Days",
+    y     = "Plant height (cm)",
+    color = "Cultivar"
+  ) +
+  scale_color_manual(values = c("gold", "brown")) +
+  # Excluded point shown transparently for reference
+  stat_summary(
+    data        = df_model |> filter(data == "04/11"),
+    aes(x = gda, y = cp_mean),
+    fun         = mean,
+    alpha       = 0.4,
+    shape       = 16,
+    show.legend = FALSE
+  ) +
+  theme_bw(base_size = 18) +
+  theme(
+    panel.grid.major  = element_blank(),
+    legend.background = element_rect(fill = "transparent"),
+    legend.position   = "bottom"
+  )
+
+ggsave("../figs/mod_logistico_ap.jpg", width = 6, height = 9)
+```
+
+## Derivative plots
+
+```{r derivative-plots, fig.cap="First (left) and second (right) derivatives of the fitted logistic curves for plant height. Points mark the inflection (●), maximum acceleration (▲), and maximum deceleration (▽) thresholds per cultivar × season combination.", fig.width=8, fig.height=10}
+
+# --- First derivative plot ---
+plot_pi_ap <-
+  ggplot() +
+  stat_function(fun = dy, aes(color = "D", linetype = "E1"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[1, 3]],
+                         b2 = parameters_ap_mean[[1, 4]],
+                         b3 = parameters_ap_mean[[1, 5]])) +
+  stat_function(fun = dy, aes(color = "M", linetype = "E1"), linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[2, 3]],
+                         b2 = parameters_ap_mean[[2, 4]],
+                         b3 = parameters_ap_mean[[2, 5]])) +
+  stat_function(fun = dy, aes(color = "D", linetype = "E2"), linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[3, 3]],
+                         b2 = parameters_ap_mean[[3, 4]],
+                         b3 = parameters_ap_mean[[3, 5]])) +
+  stat_function(fun = dy, aes(color = "M", linetype = "E2"), linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[4, 3]],
+                         b2 = parameters_ap_mean[[4, 4]],
+                         b3 = parameters_ap_mean[[4, 5]])) +
+  # Mark the inflection point for each treatment
+  geom_point(aes(xpi, ypi, shape = epoca, color = cultivar),
+             data = parameters_ap_mean, size = 3, show.legend = FALSE) +
+  theme_bw(base_size = 20) +
+  scale_x_continuous(breaks = seq(0, 1200, by = 200)) +
+  labs(
+    x        = "Accumulated Degree Days",
+    y        = expression(Plant ~ height ~ (cm ~ plant^{-1} ~ degree ~ C ~ day^{-1})),
+    color    = "Cultivar",
+    linetype = "Season"
+  ) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("gold", "brown"))
+
+# --- Second derivative plot ---
+plot_sd_ap <-
+  ggplot() +
+  geom_hline(yintercept = 0) +   # zero line: above = acceleration, below = deceleration
+  stat_function(fun = d2y, aes(color = "D", linetype = "E1"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[1, 3]],
+                         b2 = parameters_ap_mean[[1, 4]],
+                         b3 = parameters_ap_mean[[1, 5]])) +
+  stat_function(fun = d2y, aes(color = "M", linetype = "E1"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[2, 3]],
+                         b2 = parameters_ap_mean[[2, 4]],
+                         b3 = parameters_ap_mean[[2, 5]])) +
+  stat_function(fun = d2y, aes(color = "D", linetype = "E2"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[3, 3]],
+                         b2 = parameters_ap_mean[[3, 4]],
+                         b3 = parameters_ap_mean[[3, 5]])) +
+  stat_function(fun = d2y, aes(color = "M", linetype = "E2"), n = 500, linewidth = 1,
+                xlim = c(0, 1000),
+                args = c(b1 = parameters_ap_mean[[4, 3]],
+                         b2 = parameters_ap_mean[[4, 4]],
+                         b3 = parameters_ap_mean[[4, 5]])) +
+  # MAP (triangle up) and MDP (triangle down) markers
+  geom_point(aes(xmap, ymap, fill = cultivar), data = parameters_ap_mean,
+             size = 3, shape = 24, show.legend = FALSE) +
+  geom_point(aes(xmdp, ymdp, fill = cultivar), data = parameters_ap_mean,
+             size = 3, shape = 25, show.legend = FALSE) +
+  theme_bw(base_size = 20) +
+  labs(
+    x        = "Accumulated Degree Days",
+    y        = expression(Plant ~ height ~ (cm ~ plant^{-1} ~ degree ~ C ~ day^{-2})),
+    color    = "Cultivar",
+    linetype = "Season"
+  ) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank()) +
+  scale_color_manual(values = c("gold", "brown")) +
+  scale_fill_manual(values  = c("gold", "brown"))
+
+plot_pi_ap / plot_sd_ap +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+ggsave("../figs/deriv_ap.jpg", width = 8, height = 12)
+```
+
+
+# Correlation between model parameters
+```{r}
+# Correlation between parameters and critical points
+
+  parameters_ap |> 
+  select(all_of(vars_ap)) |> 
+  metan::corr_coef() |> 
+  plot()
+```

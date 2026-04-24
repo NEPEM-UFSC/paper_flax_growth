@@ -1,0 +1,55 @@
+---
+title: "Correlation Analysis"
+description: "Pearson correlation matrix among leaf area, leaf number, and plant height across all measurement dates and treatments."
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache    = FALSE,
+  comment  = "##",
+  collapse = TRUE,
+  warning  = FALSE,
+  message  = FALSE
+)
+```
+
+## Overview
+
+This section examines the linear associations among the three vegetative growth
+traits measured at each harvest:
+
+- **Leaf area per plant** (`af_planta`, cm² plant⁻¹)
+- **Leaf number per plant** (`n`, leaves plant⁻¹)
+- **Plant height** (`cp`, cm)
+
+A Pearson correlation matrix with significance stars is produced via
+`metan::corr_plot()`.
+
+## Required packages
+
+```{r libraries}
+library(rio)    # Data import
+library(metan)  # corr_plot() – correlation matrix with visual output
+library(ggplot2)
+```
+
+## Correlation plot
+
+```{r corr-plot, fig.cap="Pearson correlation matrix among leaf area, leaf number, and plant height. The lower panel shows scatter plots with a linear smoother; the upper panel shows the correlation coefficient and its significance (*** p < 0.001, ** p < 0.01, * p < 0.05).", fig.width=6, fig.height=6}
+import("../df_model_cresc.xlsx") |>
+  # Select the three growth variables; corr_plot() handles pairwise correlations
+  corr_plot(af_planta, n, cp)
+
+ggsave("../figs/correlacao.jpg", width = 6, height = 6)
+```
+
+::: {.callout-note}
+All three traits are expected to be positively and strongly correlated given that
+they are all driven by the same thermal-time accumulation process.
+:::
+
+## Session information
+
+```{r session-info}
+sessionInfo()
+```

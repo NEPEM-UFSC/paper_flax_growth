@@ -1,0 +1,158 @@
+---
+title: "Flax Growth Modelling"
+subtitle: "Logistic model reveals early sowing as key to maximizing flax (*Linum usitatissimum* L.) vegetative growth under subtropical conditions"
+page-layout: custom
+toc: false
+css: styles/custom.scss
+---
+
+```{=html}
+<section class="hero-section">
+  <h1>🌱 Logistic Model Reveals Early Sowing as Key to Maximizing Flax Vegetative Growth</h1>
+  <p class="lead">
+    A comprehensive nonlinear growth analysis of <em>Linum usitatissimum</em> L. under
+    subtropical conditions using logistic models, degree-day accumulation, and derivative-based
+    critical point estimation.
+  </p>
+  <div class="hero-badges">
+    <span class="badge bg-light text-dark">📍 UFSC – Brazil</span>
+    <span class="badge bg-light text-dark">🔬 Agronomy Journal</span>
+    <span class="badge bg-light text-dark">📦 R · ggplot2 · nls</span>
+    <span class="badge bg-light text-dark">📅 2025</span>
+  </div>
+</section>
+```
+
+::: {.container .py-5}
+
+## About the study
+
+Flax (*Linum usitatissimum* L.) is a dual-purpose crop of increasing interest in subtropical regions. Understanding the vegetative growth dynamics in response to thermal time is essential for optimizing sowing windows and maximizing fibre and seed production.
+
+This study fitted **three-parameter logistic models** to leaf area, plant height, and leaf number as a function of **accumulated growing degree-days (GDD)**, evaluated across two sowing dates (*E1* and *E2*) and two cultivars (*Dourado* and *Monarca*) in Florianópolis, Santa Catarina, Brazil.
+
+Key insights were derived by analysing the **first and second derivatives** of the fitted curves to identify inflection points (maximum growth rate) and critical acceleration/deceleration thresholds.
+
+---
+
+## Analysis pipeline
+
+::: {.row .g-3 .mb-4}
+
+::: {.col-md-4}
+::: {.info-card}
+<span class="card-icon">🌡️</span>
+### Climate Data
+Daily temperature and rainfall records processed to compute accumulated GDD for each sowing season.
+:::
+:::
+
+::: {.col-md-4}
+::: {.info-card}
+<span class="card-icon">🍃</span>
+### Leaf Area
+Logistic model fit to leaf area per plant (cm² plant⁻¹) with ANOVA on estimated parameters.
+:::
+:::
+
+::: {.col-md-4}
+::: {.info-card}
+<span class="card-icon">📏</span>
+### Plant Height
+Logistic model fit to plant height (cm) and derivative-based identification of maximum elongation rate.
+:::
+:::
+
+::: {.col-md-4}
+::: {.info-card}
+<span class="card-icon">🔢</span>
+### Leaf Number
+Logistic model fit to cumulative leaf count per plant with critical point analysis.
+:::
+:::
+
+::: {.col-md-4}
+::: {.info-card}
+<span class="card-icon">📊</span>
+### Correlations
+Pearson correlations among growth variables across measurement dates and treatments.
+:::
+:::
+
+::: {.col-md-4}
+::: {.info-card}
+<span class="card-icon">📐</span>
+### Logistic Model
+$$y = \frac{\beta_1}{1 + e^{\beta_3(\beta_2 - x)}}$$
+where *x* = GDD, β₁ = asymptote, β₂ = inflection point, β₃ = growth rate.
+:::
+:::
+
+:::
+
+---
+
+## Navigate the analyses
+
+<a href="analysis/01_climate.qmd" class="step-card">
+  <span class="step-number">01</span>
+  <div>
+    <h4>Climate Data Processing</h4>
+    <p>Import, clean and visualise hourly temperature and precipitation records. Compute daily minimum, mean and maximum temperatures, rainfall, and accumulated GDD per sowing season.</p>
+  </div>
+</a>
+
+<a href="analysis/02_leaf_area.qmd" class="step-card">
+  <span class="step-number">02</span>
+  <div>
+    <h4>Leaf Area Model</h4>
+    <p>Fit three-parameter logistic curves to leaf area per plant. Assess goodness of fit (R², AIC), run ANOVA on β₁–β₃, and plot fitted models with first and second derivatives.</p>
+  </div>
+</a>
+
+<a href="analysis/03_plant_height.qmd" class="step-card">
+  <span class="step-number">03</span>
+  <div>
+    <h4>Plant Height Model</h4>
+    <p>Same logistic framework applied to plant height. Derivative analysis locates the GDD at maximum elongation rate and acceleration/deceleration thresholds.</p>
+  </div>
+</a>
+
+<a href="analysis/04_leaf_number.qmd" class="step-card">
+  <span class="step-number">04</span>
+  <div>
+    <h4>Leaf Number Model</h4>
+    <p>Logistic fit to cumulative leaf number per plant. Inflection and critical-point identification to characterise leaf initiation dynamics across sowing dates.</p>
+  </div>
+</a>
+
+<a href="analysis/05_correlations.qmd" class="step-card">
+  <span class="step-number">05</span>
+  <div>
+    <h4>Correlation Analysis</h4>
+    <p>Pearson correlation matrix among leaf area, leaf number, and plant height using the full dataset.</p>
+  </div>
+</a>
+
+---
+
+## Citation
+
+> **Authors.** (2025). Logistic model reveals early sowing as key to maximizing flax (*Linum usitatissimum* L.) vegetative growth under subtropical conditions. *Agronomy Journal*. doi: [pending]()
+
+```{=html}
+<div class="d-flex gap-3 mt-3 flex-wrap">
+  <a class="btn btn-success" href="analysis/01_climate.qmd">
+    🚀 Start the analysis
+  </a>
+  <a class="btn btn-outline-secondary" href="about.qmd">
+    👥 About the team
+  </a>
+  <a class="btn btn-outline-secondary" href="https://github.com/nepem-ufsc/paper_flax_growth" target="_blank">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    Source code
+  </a>
+</div>
+```
+
+:::

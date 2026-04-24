@@ -1,0 +1,143 @@
+---
+title: "Supplementary Tables"
+subtitle: "Complete statistical summary for the vegetative growth of flax"
+format: html
+---
+
+```{r setup, include=FALSE}
+library(gt)
+library(dplyr)
+```
+
+This page contains all supplementary tables cited in the main manuscript, including goodness-of-fit metrics, treatment means, and Analysis of Variance (ANOVA) for all evaluated vegetative traits.
+
+::: {.panel-tabset}
+
+## Leaf Area
+
+### Goodness of Fit
+```{r gof-af}
+readRDS("../results/gof_af.rds") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S1",
+    subtitle = "Goodness-of-fit metrics for Leaf Area logistic models (per block)"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 4)
+```
+
+### Main Effect Means
+```{r means-af}
+readRDS("../results/means_summary_af.rds") |> 
+  gt(groupname_col = "Factor") |> 
+  tab_header(
+    title = "Supplementary Table S2", 
+    subtitle = "Main Effect Means: Model parameters and critical points for Leaf Area"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5)
+```
+
+### ANOVA Summary
+```{r anova-af}
+readRDS("../results/anova_af.rds") |> 
+  filter(term != "Residuals", Parameter != "xpi") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S3",
+    subtitle = "ANOVA Summary: Model parameters and critical points for Leaf Area"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5) |> 
+  tab_style(
+    style = cell_text(color = "red", weight = "bold"),
+    locations = cells_body(
+      rows = p.value < 0.05
+    )
+  )
+```
+
+## Plant Height
+
+### Goodness of Fit
+```{r gof-ap}
+readRDS("../results/gof_ap.rds") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S4",
+    subtitle = "Goodness-of-fit metrics for Plant Height logistic models (per block)"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 4)
+```
+
+### Main Effect Means
+```{r means-ap}
+readRDS("../results/means_summary_ap.rds") |> 
+  gt(groupname_col = "Factor") |> 
+  tab_header(
+    title = "Supplementary Table S5", 
+    subtitle = "Main Effect Means: Model parameters and critical points for Plant Height"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5)
+```
+
+### ANOVA Summary
+```{r anova-ap}
+readRDS("../results/anova_ap.rds") |> 
+  filter(term != "Residuals", Parameter != "xpi") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S6",
+    subtitle = "ANOVA Summary: Model parameters and critical points for Plant Height"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5) |> 
+  tab_style(
+    style = cell_text(color = "red", weight = "bold"),
+    locations = cells_body(
+      rows = p.value < 0.05
+    )
+  )
+```
+
+## Leaf Number
+
+### Goodness of Fit
+```{r gof-nf}
+readRDS("../results/gof_nf.rds") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S7",
+    subtitle = "Goodness-of-fit metrics for Leaf Number logistic models (per block)"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 4)
+```
+
+### Main Effect Means
+```{r means-nf}
+readRDS("../results/means_summary_nf.rds") |> 
+  gt(groupname_col = "Factor") |> 
+  tab_header(
+    title = "Supplementary Table S8", 
+    subtitle = "Main Effect Means: Model parameters and critical points for Leaf Number"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5)
+```
+
+### ANOVA Summary
+```{r anova-nf}
+readRDS("../results/anova_nf.rds") |> 
+  filter(term != "Residuals", Parameter != "xpi") |> 
+  gt() |> 
+  tab_header(
+    title = "Supplementary Table S9",
+    subtitle = "ANOVA Summary: Model parameters and critical points for Leaf Number"
+  ) |> 
+  fmt_number(columns = where(is.numeric), decimals = 5) |> 
+  tab_style(
+    style = cell_text(color = "red", weight = "bold"),
+    locations = cells_body(
+      rows = p.value < 0.05
+    )
+  )
+
+```
+
+:::
