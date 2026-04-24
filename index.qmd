@@ -94,53 +94,39 @@ where *x* = GDD, β₁ = asymptote, β₂ = inflection point, β₃ = growth rat
 
 ## Navigate the analyses
 
-<a href="analysis/01_climate.qmd" class="step-card">
-  <span class="step-number">01</span>
-  <div>
-    <h4>Climate Data Processing</h4>
-    <p>Import, clean and visualise hourly temperature and precipitation records. Compute daily minimum, mean and maximum temperatures, rainfall, and accumulated GDD per sowing season.</p>
-  </div>
+<div class="analysis-grid">
+
+<a href="analysis/01_climate.qmd" class="analysis-card">
+  <span class="card-num">01</span>
+  <h4 class="card-title">Climate Data Processing</h4>
 </a>
 
-<a href="analysis/02_leaf_area.qmd" class="step-card">
-  <span class="step-number">02</span>
-  <div>
-    <h4>Leaf Area Model</h4>
-    <p>Fit three-parameter logistic curves to leaf area per plant. Assess goodness of fit (R², AIC), run ANOVA on β₁–β₃, and plot fitted models with first and second derivatives.</p>
-  </div>
+<a href="analysis/02_leaf_area.qmd" class="analysis-card">
+  <span class="card-num">02</span>
+  <h4 class="card-title">Leaf Area Model</h4>
 </a>
 
-<a href="analysis/03_plant_height.qmd" class="step-card">
-  <span class="step-number">03</span>
-  <div>
-    <h4>Plant Height Model</h4>
-    <p>Same logistic framework applied to plant height. Derivative analysis locates the GDD at maximum elongation rate and acceleration/deceleration thresholds.</p>
-  </div>
+<a href="analysis/03_plant_height.qmd" class="analysis-card">
+  <span class="card-num">03</span>
+  <h4 class="card-title">Plant Height Model</h4>
 </a>
 
-<a href="analysis/04_leaf_number.qmd" class="step-card">
-  <span class="step-number">04</span>
-  <div>
-    <h4>Leaf Number Model</h4>
-    <p>Logistic fit to cumulative leaf number per plant. Inflection and critical-point identification to characterise leaf initiation dynamics across sowing dates.</p>
-  </div>
+<a href="analysis/04_leaf_number.qmd" class="analysis-card">
+  <span class="card-num">04</span>
+  <h4 class="card-title">Leaf Number Model</h4>
 </a>
 
-<a href="analysis/05_correlations.qmd" class="step-card">
-  <span class="step-number">05</span>
-  <div>
-    <h4>Correlation Analysis</h4>
-    <p>Pearson correlation matrix among leaf area, leaf number, and plant height using the full dataset.</p>
-  </div>
+<a href="analysis/05_correlations.qmd" class="analysis-card">
+  <span class="card-num">05</span>
+  <h4 class="card-title">Correlation Analysis</h4>
 </a>
 
-<a href="analysis/06_supplementary.qmd" class="step-card">
-  <span class="step-number">06</span>
-  <div>
-    <h4>Supplementary Tables</h4>
-    <p>Consolidated statistical summary including goodness-of-fit metrics, main effect means, and complete ANOVA tables for all vegetative traits.</p>
-  </div>
+<a href="analysis/06_supplementary.qmd" class="analysis-card">
+  <span class="card-num">06</span>
+  <h4 class="card-title">Supplementary Tables</h4>
 </a>
+
+</div>
 
 ---
 

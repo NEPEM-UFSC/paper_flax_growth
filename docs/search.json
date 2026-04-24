@@ -18,7 +18,7 @@
     "href": "index.html#navigate-the-analyses",
     "title": "Flax Growth Modelling",
     "section": "Navigate the analyses",
-    "text": "Navigate the analyses\n 01\n\n&lt;h4&gt;Climate Data Processing&lt;/h4&gt;\n&lt;p&gt;Import, clean and visualise hourly temperature and precipitation records. Compute daily minimum, mean and maximum temperatures, rainfall, and accumulated GDD per sowing season.&lt;/p&gt;\n\n\n 02\n\n&lt;h4&gt;Leaf Area Model&lt;/h4&gt;\n&lt;p&gt;Fit three-parameter logistic curves to leaf area per plant. Assess goodness of fit (R², AIC), run ANOVA on β₁–β₃, and plot fitted models with first and second derivatives.&lt;/p&gt;\n\n\n 03\n\n&lt;h4&gt;Plant Height Model&lt;/h4&gt;\n&lt;p&gt;Same logistic framework applied to plant height. Derivative analysis locates the GDD at maximum elongation rate and acceleration/deceleration thresholds.&lt;/p&gt;\n\n\n 04\n\n&lt;h4&gt;Leaf Number Model&lt;/h4&gt;\n&lt;p&gt;Logistic fit to cumulative leaf number per plant. Inflection and critical-point identification to characterise leaf initiation dynamics across sowing dates.&lt;/p&gt;\n\n\n 05\n\n&lt;h4&gt;Correlation Analysis&lt;/h4&gt;\n&lt;p&gt;Pearson correlation matrix among leaf area, leaf number, and plant height using the full dataset.&lt;/p&gt;"
+    "text": "Navigate the analyses\n\n 01\n\nClimate Data Processing\n\n\n 02\n\nLeaf Area Model\n\n\n 03\n\nPlant Height Model\n\n\n 04\n\nLeaf Number Model\n\n\n 05\n\nCorrelation Analysis\n\n\n 06\n\nSupplementary Tables"
   },
   {
     "objectID": "index.html#citation",
