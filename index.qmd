@@ -134,6 +134,14 @@ where *x* = GDD, β₁ = asymptote, β₂ = inflection point, β₃ = growth rat
   </div>
 </a>
 
+<a href="analysis/06_supplementary.qmd" class="step-card">
+  <span class="step-number">06</span>
+  <div>
+    <h4>Supplementary Tables</h4>
+    <p>Consolidated statistical summary including goodness-of-fit metrics, main effect means, and complete ANOVA tables for all vegetative traits.</p>
+  </div>
+</a>
+
 ---
 
 ## Citation

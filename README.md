@@ -28,7 +28,9 @@ paper_flax_growth/
 │   ├── 02_leaf_area.qmd      # Leaf area logistic model
 │   ├── 03_plant_height.qmd   # Plant height logistic model
 │   ├── 04_leaf_number.qmd    # Leaf number logistic model
-│   └── 05_correlations.qmd   # Pearson correlation matrix
+│   ├── 05_correlations.qmd   # Pearson correlation matrix
+│   └── 06_supplementary.qmd  # Consolidated supplementary tables
+├── results/                  # Pre-computed analysis objects (.rds)
 ├── figs/                     # Generated figures (auto-created on render)
 ├── clima.csv                 # Hourly weather station data
 ├── df_model_cresc.xlsx       # Field measurements (raw plant data)
@@ -46,7 +48,7 @@ paper_flax_growth/
 ```r
 install.packages(c(
   "rio", "tidyverse", "metan", "lubridate", "broom",
-  "emmeans", "AgroR", "patchwork", "ggridges", "hydroGOF"
+  "emmeans", "AgroR", "patchwork", "ggridges", "hydroGOF", "gt"
 ))
 ```
 
